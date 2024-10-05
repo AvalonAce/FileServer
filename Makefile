@@ -6,8 +6,23 @@
 ##
 #################################################################
 
-client: client.cpp
-	g++ -o client client.cpp -l"Ws2_32"
+CC=gcc
+
+OS := $(shell uname -s)
+
+# Extra LDFLAGS if Solaris
+ifeq ($(OS), SunOS)
+	LDFLAGS=-lsocket -lnsl
+    endif
+
+all: client server 
+
+client: client.c
+	$(CC) client.c -o client -lcrypto
+
+server: server.c
+	$(CC) server.c -o server -lcrypto
 
 clean:
-	rm -f client
+	    rm -f client server *.o
+

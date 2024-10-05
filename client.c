@@ -35,11 +35,12 @@ int main(int argc, char *argv[]) {
         fatal_error("Connect failed");
     }
 
-    printf("Connected to the server. Type a message to send:\n");
+    printf("=== Connected to the server. Welcome to UFmyMusic! ===\n");
+    printf("Commands:\n1) List\n2) Diff\n3) Pull\n4) Leave\n");
 
     // Send messages to the server and receive the response
     while (1) {
-        printf("Enter message: ");
+        printf("Enter Command: ");
         fgets(message, BUFSIZE, stdin);
 
         // Remove the newline character from the message
@@ -56,12 +57,30 @@ int main(int argc, char *argv[]) {
         // Receive the server's response (echo)
         bytesReceived = recv(sock, buffer, BUFSIZE, 0);
         buffer[bytesReceived] = '\0';
-        printf("Echo from server: %s\n", buffer);
+        printf("Response from server: %s\n", buffer);
+
+        // Decide what to do based on the server's response - List, Diff, Pull, Leave
+        if (strcmp(buffer, "LIST SUCCESSFUL") == 0) {
+
+        }
+        else if (strcmp(buffer, "DIFF SUCCESSFUL") == 0) {
+
+        }
+        else if (strcmp(buffer, "PULL SUCCESSFUL") == 0) {
+
+
+        }
+        else if (strcmp(buffer, "Disconnecting Client...") == 0) {
+            break;
+        } else {
+            printf("=== Server Side Failure ===\n");
+        }
+
     }
 
     // Close the socket
     close(sock);
-    printf("Disconnected from the server.\n");
+    printf("=== Disconnected from the server ===\n");
 
     return 0;
 }
