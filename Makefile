@@ -21,7 +21,7 @@ client: client.c
 	$(CC) client.c -o client -lcrypto
 
 server: server.c
-	$(CC) server.c -o server -lcrypto
+	$(CC) server.c -o server -lcrypto -lpthread
 
 clean:
 	    rm -f client server *.o
