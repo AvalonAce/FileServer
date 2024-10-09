@@ -61,6 +61,7 @@ void handle_client(void *clientData, char *path) {
             // Handle Functions: LIST, DIFF, PULL, LEAVE
             if (strcasecmp(buffer, "LIST") == 0 || strcasecmp(buffer, "1") == 0) {
                 printf("Client %s:%d requested LIST\n", clientIP, ntohs(client->clientAddr.sin_port));
+                add_to_csv_entry("./cilent_database.csv", clientIP, ntohs(client->clientAddr.sin_port), "LIST");
                 if (list(clientSock, path) == -1) {
                     send(clientSock, "Failed to list files", 20, 0);
                 } else {
@@ -68,6 +69,7 @@ void handle_client(void *clientData, char *path) {
                 }
             } else if (strcasecmp(buffer, "DIFF") == 0 || strcasecmp(buffer, "2") == 0) {
                 printf("Client %s:%d requested DIFF\n", clientIP, ntohs(client->clientAddr.sin_port));
+                add_to_csv_entry("./cilent_database.csv", clientIP, ntohs(client->clientAddr.sin_port), "DIFF");
                 if (diff(clientSock, path) == -1) {
                     send(clientSock, "Failed to get differences", 27, 0);
                 } else {
@@ -75,6 +77,7 @@ void handle_client(void *clientData, char *path) {
                 }
             } else if (strcasecmp(buffer, "PULL") == 0 || strcasecmp(buffer, "3") == 0) {
                 printf("Client %s:%d requested PULL\n", clientIP, ntohs(client->clientAddr.sin_port));
+                add_to_csv_entry("./cilent_database.csv", clientIP, ntohs(client->clientAddr.sin_port), "PULL");
                 if (pull(clientSock, path) == -1) {
                     send(clientSock, "Failed to pull files" , 19, 0);
                 } else {
@@ -83,6 +86,7 @@ void handle_client(void *clientData, char *path) {
             } else if (strcasecmp(buffer, "LEAVE") == 0 || strcasecmp(buffer, "4") == 0) {
                 // Disconnect client
                 printf("Client %s:%d requested LEAVE\n", clientIP, ntohs(client->clientAddr.sin_port));
+                add_to_csv_entry("./cilent_database.csv", clientIP, ntohs(client->clientAddr.sin_port), "LEAVE");
                 send(clientSock, "Disconnecting Client...", 24, 0);
                 printf("Client disconnected: %s:%d\n", clientIP, ntohs(client->clientAddr.sin_port));
                 close(clientSock); 
@@ -90,6 +94,7 @@ void handle_client(void *clientData, char *path) {
                 break;
             } else {
                 // Invalid command
+                add_to_csv_entry("./cilent_database.csv", clientIP, ntohs(client->clientAddr.sin_port), "INV");
                 send(clientSock, "Invalid command.", 17, 0);
             }
     }
@@ -131,7 +136,13 @@ int main(int argc, char *argv[]) {
         fatal_error("Listen failed");
     }
 
+    // Create client file
+    if (create_clients_csv("./cilent_database.csv") == -1) {
+        fatal_error("Failed to create client database");
+    }
+
     printf("Server listening on port %d\n", PORT);
+
 
     // Main loop: accept client connections and handle them
     while (1) {
