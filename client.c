@@ -44,6 +44,7 @@ int main(int argc, char *argv[]) {
     // Send messages to the server and receive the response
     while (1) {
         printf("Enter Command: ");
+        fflush(stdout);
         fgets(message, BUFSIZE, stdin);
 
         // Remove the newline character from the message
@@ -60,6 +61,7 @@ int main(int argc, char *argv[]) {
         bytesReceived = recv(sock, buffer, BUFSIZE, 0);
         buffer[bytesReceived] = '\0';
         printf("%s", buffer);
+        fflush(stdout);
     }
 
 
