@@ -3,6 +3,8 @@
 #include <string.h>
 #include <unistd.h>
 #include <arpa/inet.h>
+#include <stdio.h>
+
 
 #define BUFSIZE 512
 #define PORT 9090
@@ -35,6 +37,7 @@ int main(int argc, char *argv[]) {
         fatal_error("Connect failed");
     }
 
+    fflush(stdout);
     printf("=== Connected to the server. Welcome to UFmyMusic! ===\n");
     printf("Commands:\n1) List\n2) Diff\n3) Pull\n4) Leave\n");
 
@@ -53,11 +56,12 @@ int main(int argc, char *argv[]) {
         if (strcmp(message, "exit") == 0) {
             break;
         }
-
         // Receive the server's response (echo)
         bytesReceived = recv(sock, buffer, BUFSIZE, 0);
         buffer[bytesReceived] = '\0';
-        printf("Response from server: %s\n", buffer);
+        printf("%s", buffer);
+    }
+
 
         // Decide what to do based on the server's response - List, Diff, Pull, Leave
         if (strcmp(buffer, "LIST SUCCESSFUL") == 0) {
@@ -71,12 +75,10 @@ int main(int argc, char *argv[]) {
 
         }
         else if (strcmp(buffer, "Disconnecting Client...") == 0) {
-            break;
+
         } else {
             printf("=== Server Side Failure ===\n");
         }
-
-    }
 
     // Close the socket
     close(sock);
