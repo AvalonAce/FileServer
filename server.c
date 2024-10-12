@@ -192,7 +192,6 @@ void handle_client(void *clientData, char *path)
         else if (strcasecmp(buffer, "DIFF") == 0 || strcasecmp(buffer, "2") == 0)
         {
             printf("Client %s:%d requested DIFF\n", clientIP, ntohs(client->clientAddr.sin_port));
-            add_to_csv_entry("./cilent_database.csv", clientIP, ntohs(client->clientAddr.sin_port), "DIFF");
             struct FileInfo *files[500];
             int serverFileCount = -1;
             if ((serverFileCount = list(clientSock, ".", files, 0)) == -1)
@@ -215,6 +214,7 @@ void handle_client(void *clientData, char *path)
 
                 send(clientSock, "DIFF SUCCESSFUL\n", 17, 0);
             }
+            add_to_csv_entry("./cilent_database.csv", clientIP, ntohs(client->clientAddr.sin_port), "DIFF");
         }
         else if (strcasecmp(buffer, "PULL") == 0 || strcasecmp(buffer, "3") == 0)
         {
