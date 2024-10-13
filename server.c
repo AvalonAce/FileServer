@@ -9,6 +9,7 @@
 #include <sys/types.h> // for struct stat
 #include <sys/stat.h>  // for struct stat
 #include <limits.h>    // for PATH_MAX
+#include <openssl/sha.h>
 #include "server_structs.h"
 
 #define PORT 9090
@@ -203,13 +204,22 @@ void handle_client(void *clientData, char *path)
                 send(clientSock, &serverFileCount, sizeof(int), 0);
                 for (int i = 0; i < serverFileCount; i++)
                 {
+                    // Ignore ./server and client_db.csv
+                    // if (strcasecmp(files[i]->name, "server") == 0 || strcasecmp(files[i]->name, "client_db.csv") == 0)
+                    //     continue;
+
+                    SHA256_CTX sha256;
+                    SHA256_Init(&sha256);
+                    SHA256_Update(&sha256, files[i]->content, strlen(files[i]->content));
+
                     int nameLen = strlen(files[i]->name);
                     send(clientSock, &nameLen, sizeof(int), 0);
                     send(clientSock, files[i]->name, nameLen, 0);
 
-                    long fileSize = strlen(files[i]->content);
-                    send(clientSock, &fileSize, sizeof(long), 0);
-                    send(clientSock, files[i]->content, fileSize, 0);
+                    unsigned char hash[SHA256_DIGEST_LENGTH];
+                    SHA256_Final(hash, &sha256);
+
+                    send(clientSock, hash, SHA256_DIGEST_LENGTH, 0);
                 }
 
                 send(clientSock, "DIFF SUCCESSFUL\n", 17, 0);
@@ -228,9 +238,9 @@ void handle_client(void *clientData, char *path)
             else
             {
                 // Send File Count of server
-                send(clientSock, &serverFileCount, sizeof(int), 0); 
+                send(clientSock, &serverFileCount, sizeof(int), 0);
 
-                // For each file, 
+                // For each file,
                 for (int i = 0; i < serverFileCount; i++)
                 {
                     int nameLen = strlen(files[i]->name);

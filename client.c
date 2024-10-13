@@ -8,6 +8,7 @@
 #include <dirent.h>
 #include <sys/stat.h>  // for struct stat
 #include <sys/types.h> // for struct stat
+#include <openssl/sha.h>
 
 #define MAX_FILES 100 // Maximum number of files to handle
 
@@ -203,14 +204,32 @@ int main(int argc, char *argv[])
         else if (strcasecmp(message, "diff") == 0 || strcasecmp(message, "2") == 0)
         {
             struct FileInfo *clientFiles[500];
-            struct FileInfo serverFiles[500];
+            // struct FileInfo serverFiles[500];
+            unsigned char serverFileNames[500][256];
 
             int clientFileCount = read_files(".", clientFiles);
+
+            // create an array of SHA256 hashes for each file
+            unsigned char clientHashes[clientFileCount][SHA256_DIGEST_LENGTH];
+
+            for (int i = 0; i < clientFileCount; i++)
+            {
+                // Ignore ./server and client_db.csv
+                if (strcasecmp(clientFiles[i]->name, "server") == 0 || strcasecmp(clientFiles[i]->name, "client_db.csv") == 0)
+                    continue;
+
+                SHA256_CTX sha256;
+                SHA256_Init(&sha256);
+                SHA256_Update(&sha256, clientFiles[i]->content, strlen(clientFiles[i]->content));
+                SHA256_Final(clientHashes[i], &sha256);
+            }
 
             send(sock, message, strlen(message), 0);
 
             int fileCount;
             recv(sock, &fileCount, sizeof(int), 0); // Receive the number of files
+
+            unsigned char serverHashes[fileCount][SHA256_DIGEST_LENGTH];
 
             for (int i = 0; i < fileCount; i++)
             {
@@ -222,33 +241,25 @@ int main(int argc, char *argv[])
                 fileName[nameLen] = '\0';
                 for (int j = 0; j < nameLen; j++)
                 {
-                    serverFiles[i].name[j] = fileName[j];
+                    serverFileNames[i][j] = fileName[j];
                 }
-                serverFiles[i].name[nameLen] = '\0';
+                serverFileNames[i][nameLen] = '\0';
 
-                long fileSize;
-                recv(sock, &fileSize, sizeof(long), 0);
-                serverFiles[i].content = (char *)malloc(fileSize + 1);
-                recv(sock, serverFiles[i].content, fileSize, 0);
-                serverFiles[i].content[fileSize] = '\0';
+                recv(sock, serverHashes[i], SHA256_DIGEST_LENGTH, 0);
             }
 
             // compare server and client files
-
-            bytesReceived = recv(sock, buffer, BUFSIZE, 0);
-            buffer[bytesReceived] = '\0';
-            printf("%s", buffer);
-
             for (int i = 0; i < fileCount; i++)
             {
                 // Ignore ./server and client_db.csv
-                if (strcasecmp(serverFiles[i].name, "server") == 0 || strcasecmp(serverFiles[i].name, "client_db.csv") == 0) continue;
+                if (strcasecmp(serverFileNames[i], "server") == 0 || strcasecmp(serverFileNames[i], "client_db.csv") == 0)
+                    continue;
                 int found = 0;
                 for (int j = 0; j < clientFileCount; j++)
                 {
-                    if (strcmp(serverFiles[i].name, clientFiles[j]->name) == 0)
+                    if (strcmp((const char *)serverFileNames[i], clientFiles[j]->name) == 0)
                     {
-                        if (strcmp(serverFiles[i].content, clientFiles[j]->content) == 0)
+                        if (memcmp(serverHashes[i], clientHashes[j], SHA256_DIGEST_LENGTH) == 0)
                         {
                             found = 1;
                             break;
@@ -257,9 +268,13 @@ int main(int argc, char *argv[])
                 }
                 if (found == 0)
                 {
-                    printf("%s is different\n", serverFiles[i].name);
+                    printf("%s is different\n", serverFileNames[i]);
                 }
             }
+
+            bytesReceived = recv(sock, buffer, BUFSIZE, 0);
+            buffer[bytesReceived] = '\0';
+            printf("%s", buffer);
         }
         else if (strcasecmp(message, "pull") == 0 || strcasecmp(message, "3") == 0)
         {
@@ -303,11 +318,12 @@ int main(int argc, char *argv[])
             for (int i = 0; i < fileCount; i++)
             {
                 // Ignore ./server and client_db.csv
-                if (strcasecmp(serverFiles[i].name, "server") == 0 || strcasecmp(serverFiles[i].name, "client_db.csv") == 0) continue;
+                if (strcasecmp(serverFiles[i].name, "server") == 0 || strcasecmp(serverFiles[i].name, "client_db.csv") == 0)
+                    continue;
                 int found = 0;
                 for (int j = 0; j < clientFileCount; j++)
                 {
-                   
+
                     if (strcmp(serverFiles[i].name, clientFiles[j]->name) == 0)
                     {
                         if (strcmp(serverFiles[i].content, clientFiles[j]->content) == 0)
@@ -323,7 +339,8 @@ int main(int argc, char *argv[])
 
                     // Write the file to the client directory
                     FILE *fp = fopen(serverFiles[i].name, "w");
-                    if (fp == NULL) {
+                    if (fp == NULL)
+                    {
                         perror("Error opening file for writing");
                         continue;
                     }
@@ -331,8 +348,6 @@ int main(int argc, char *argv[])
                     fwrite(serverFiles[i].content, sizeof(char), strlen(serverFiles[i].content), fp);
 
                     fclose(fp);
-
-
                 }
             }
         }
