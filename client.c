@@ -172,12 +172,13 @@ int main(int argc, char *argv[])
         message[strcspn(message, "\n")] = 0;
 
         // If the user types "exit", break the loop and disconnect
-        if (strcmp(message, "exit") == 0)
+        if (strcasecmp(message, "exit") == 0 || strcasecmp(message, "leave") == 0 || strcasecmp(message, "4") == 0)
         {
+            send(sock, message, strlen(message), 0); // Send the exit message to the server
             break;
         }
 
-        if (strcasecmp(message, "list") == 0)
+        if (strcasecmp(message, "list") == 0 || strcasecmp(message, "1") == 0)
         {
             send(sock, message, strlen(message), 0);
 
@@ -199,7 +200,7 @@ int main(int argc, char *argv[])
             buffer[bytesReceived] = '\0';
             printf("%s", buffer);
         }
-        else if (strcasecmp(message, "diff") == 0)
+        else if (strcasecmp(message, "diff") == 0 || strcasecmp(message, "2") == 0)
         {
             struct FileInfo *clientFiles[500];
             struct FileInfo serverFiles[500];
@@ -240,6 +241,8 @@ int main(int argc, char *argv[])
 
             for (int i = 0; i < fileCount; i++)
             {
+                // Ignore ./server and client_db.csv
+                if (strcasecmp(serverFiles[i].name, "server") == 0 || strcasecmp(serverFiles[i].name, "client_db.csv") == 0) continue;
                 int found = 0;
                 for (int j = 0; j < clientFileCount; j++)
                 {
@@ -258,6 +261,81 @@ int main(int argc, char *argv[])
                 }
             }
         }
+        else if (strcasecmp(message, "pull") == 0 || strcasecmp(message, "3") == 0)
+        {
+            // Same as diff -----------------
+            struct FileInfo *clientFiles[500];
+            struct FileInfo serverFiles[500];
+
+            int clientFileCount = read_files(".", clientFiles);
+
+            send(sock, message, strlen(message), 0);
+
+            int fileCount;
+            recv(sock, &fileCount, sizeof(int), 0); // Receive the number of files
+
+            for (int i = 0; i < fileCount; i++)
+            {
+                int nameLen;
+                recv(sock, &nameLen, sizeof(int), 0); // Receive the length of the file name
+
+                char fileName[256];
+                recv(sock, fileName, nameLen, 0);
+                fileName[nameLen] = '\0';
+                for (int j = 0; j < nameLen; j++)
+                {
+                    serverFiles[i].name[j] = fileName[j];
+                }
+                serverFiles[i].name[nameLen] = '\0';
+
+                long fileSize;
+                recv(sock, &fileSize, sizeof(long), 0);
+                serverFiles[i].content = (char *)malloc(fileSize + 1);
+                recv(sock, serverFiles[i].content, fileSize, 0);
+                serverFiles[i].content[fileSize] = '\0';
+            } // --------------------------------------------
+
+            // Compare and pull files instead of listing differences
+            bytesReceived = recv(sock, buffer, BUFSIZE, 0);
+            buffer[bytesReceived] = '\0';
+            printf("%s", buffer);
+
+            for (int i = 0; i < fileCount; i++)
+            {
+                // Ignore ./server and client_db.csv
+                if (strcasecmp(serverFiles[i].name, "server") == 0 || strcasecmp(serverFiles[i].name, "client_db.csv") == 0) continue;
+                int found = 0;
+                for (int j = 0; j < clientFileCount; j++)
+                {
+                   
+                    if (strcmp(serverFiles[i].name, clientFiles[j]->name) == 0)
+                    {
+                        if (strcmp(serverFiles[i].content, clientFiles[j]->content) == 0)
+                        {
+                            found = 1;
+                            break;
+                        }
+                    }
+                }
+                if (found == 0)
+                {
+                    printf("Pulling %s\n", serverFiles[i].name);
+
+                    // Write the file to the client directory
+                    FILE *fp = fopen(serverFiles[i].name, "w");
+                    if (fp == NULL) {
+                        perror("Error opening file for writing");
+                        continue;
+                    }
+
+                    fwrite(serverFiles[i].content, sizeof(char), strlen(serverFiles[i].content), fp);
+
+                    fclose(fp);
+
+
+                }
+            }
+        }
         else
         {
             printf("Invalid command\n");
@@ -266,23 +344,23 @@ int main(int argc, char *argv[])
         fflush(stdout);
     }
 
-    // Decide what to do based on the server's response - List, Diff, Pull, Leave
-    if (strcmp(buffer, "LS") == 0)
-    {
-    }
-    else if (strcmp(buffer, "DIFF SUCCESSFUL") == 0)
-    {
-    }
-    else if (strcmp(buffer, "PULL SUCCESSFUL") == 0)
-    {
-    }
-    else if (strcmp(buffer, "Disconnecting Client...") == 0)
-    {
-    }
-    else
-    {
-        printf("=== Server Side Failure ===\n");
-    }
+    // // Decide what to do based on the server's response - List, Diff, Pull, Leave
+    // if (strcmp(buffer, "LS") == 0)
+    // {
+    // }
+    // else if (strcmp(buffer, "DIFF SUCCESSFUL") == 0)
+    // {
+    // }
+    // else if (strcmp(buffer, "PULL SUCCESSFUL") == 0)
+    // {
+    // }
+    // else if (strcmp(buffer, "Disconnecting Client...") == 0)
+    // {
+    // }
+    // else
+    // {
+    //     printf("=== Server Side Failure ===\n");
+    // }
 
     // Close the socket
     close(sock);

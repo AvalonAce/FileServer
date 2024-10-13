@@ -169,7 +169,7 @@ void handle_client(void *clientData, char *path)
         if (strcasecmp(buffer, "LIST") == 0 || strcasecmp(buffer, "1") == 0)
         {
             printf("Client %s:%d requested LIST\n", clientIP, ntohs(client->clientAddr.sin_port));
-            add_to_csv_entry("./cilent_database.csv", clientIP, ntohs(client->clientAddr.sin_port), "LIST");
+            add_to_csv_entry("./client_db.csv", clientIP, ntohs(client->clientAddr.sin_port), "LIST");
             struct FileInfo *files[500];
             int serverFileCount = -1;
             if ((serverFileCount = list(clientSock, ".", files, 1)) == -1)
@@ -214,36 +214,49 @@ void handle_client(void *clientData, char *path)
 
                 send(clientSock, "DIFF SUCCESSFUL\n", 17, 0);
             }
-            add_to_csv_entry("./cilent_database.csv", clientIP, ntohs(client->clientAddr.sin_port), "DIFF");
+            add_to_csv_entry("./client_db.csv", clientIP, ntohs(client->clientAddr.sin_port), "DIFF");
         }
         else if (strcasecmp(buffer, "PULL") == 0 || strcasecmp(buffer, "3") == 0)
         {
             printf("Client %s:%d requested PULL\n", clientIP, ntohs(client->clientAddr.sin_port));
-            add_to_csv_entry("./cilent_database.csv", clientIP, ntohs(client->clientAddr.sin_port), "PULL");
-            if (pull(clientSock, path) == -1)
+            struct FileInfo *files[500];
+            int serverFileCount = -1;
+            if ((serverFileCount = list(clientSock, ".", files, 0)) == -1)
             {
-                send(clientSock, "Failed to pull files\n", 21, 0);
+                send(clientSock, "Failed to get differences", 27, 0);
             }
             else
             {
-                send(clientSock, "PULL SUCCESSFUL\n", 18, 0);
+                // Send File Count of server
+                send(clientSock, &serverFileCount, sizeof(int), 0); 
+
+                // For each file, 
+                for (int i = 0; i < serverFileCount; i++)
+                {
+                    int nameLen = strlen(files[i]->name);
+                    send(clientSock, &nameLen, sizeof(int), 0);
+                    send(clientSock, files[i]->name, nameLen, 0);
+
+                    long fileSize = strlen(files[i]->content);
+                    send(clientSock, &fileSize, sizeof(long), 0);
+                    send(clientSock, files[i]->content, fileSize, 0);
+                }
+
+                send(clientSock, "PULL SUCCESSFUL\n", 17, 0);
             }
+            add_to_csv_entry("./client_db.csv", clientIP, ntohs(client->clientAddr.sin_port), "PULL");
         }
-        else if (strcasecmp(buffer, "LEAVE") == 0 || strcasecmp(buffer, "4") == 0)
+        else if (strcasecmp(buffer, "LEAVE") == 0 || strcasecmp(buffer, "4") == 0 || strcasecmp(buffer, "EXIT") == 0)
         {
             // Disconnect client
             printf("Client %s:%d requested LEAVE\n", clientIP, ntohs(client->clientAddr.sin_port));
-            add_to_csv_entry("./cilent_database.csv", clientIP, ntohs(client->clientAddr.sin_port), "LEAVE");
-            send(clientSock, "Disconnecting Client...", 24, 0);
-            printf("Client disconnected: %s:%d\n", clientIP, ntohs(client->clientAddr.sin_port));
-            close(clientSock);
-            free(client);
+            add_to_csv_entry("./client_db.csv", clientIP, ntohs(client->clientAddr.sin_port), "LEAVE");
             break;
         }
         else
         {
             // Invalid command
-            // add_to_csv_entry("./cilent_database.csv", clientIP, ntohs(client->clientAddr.sin_port), "INV");
+            // add_to_csv_entry("./client_db.csv", clientIP, ntohs(client->clientAddr.sin_port), "INV");
             // send(clientSock, "Invalid command\n", 16, 0);
         }
         fflush(stdout);
@@ -290,7 +303,7 @@ int main(int argc, char *argv[])
     }
 
     // Create client file
-    if (create_clients_csv("./cilent_database.csv") == -1)
+    if (create_clients_csv("./client_db.csv") == -1)
     {
         fatal_error("Failed to create client database");
     }
