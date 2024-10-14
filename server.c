@@ -201,12 +201,21 @@ void handle_client(void *clientData, char *path)
             }
             else
             {
-                send(clientSock, &serverFileCount, sizeof(int), 0);
+                int diff = 0;
                 for (int i = 0; i < serverFileCount; i++)
                 {
+                    if (strcasecmp(files[i]->name, "server") == 0 || strcasecmp(files[i]->name, "client_db.csv") == 0)
+                    {
+                        serverFileCount--;
+                        diff++;
+                    }
+                }
+                send(clientSock, &serverFileCount, sizeof(int), 0);
+                for (int i = 0; i < serverFileCount + diff; i++)
+                {
                     // Ignore ./server and client_db.csv
-                    // if (strcasecmp(files[i]->name, "server") == 0 || strcasecmp(files[i]->name, "client_db.csv") == 0)
-                    //     continue;
+                    if (strcasecmp(files[i]->name, "server") == 0 || strcasecmp(files[i]->name, "client_db.csv") == 0)
+                        continue;
 
                     SHA256_CTX sha256;
                     SHA256_Init(&sha256);

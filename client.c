@@ -252,8 +252,12 @@ int main(int argc, char *argv[])
             for (int i = 0; i < fileCount; i++)
             {
                 // Ignore ./server and client_db.csv
-                if (strcasecmp(serverFileNames[i], "server") == 0 || strcasecmp(serverFileNames[i], "client_db.csv") == 0)
+                if (strcasecmp((const char *)serverFileNames[i], "server") == 0 ||
+                    strcasecmp((const char *)serverFileNames[i], "client_db.csv") == 0)
+                {
+                    printf("Ignoring %s\n", serverFileNames[i]);
                     continue;
+                }
                 int found = 0;
                 for (int j = 0; j < clientFileCount; j++)
                 {
