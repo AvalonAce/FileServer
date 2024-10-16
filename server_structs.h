@@ -19,17 +19,6 @@ Structs and functions for server-side handling.
 #include <limits.h>  // for PATH_MAX
 
 
-struct tree_node {
-
-
-
-};
-
-struct file_tree { // Store files in 'dir' directory
-
-
-};
-
 // CSV File for client data
 /*
     CSV file format:
