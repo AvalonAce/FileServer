@@ -164,11 +164,8 @@ void handle_client(void *clientData, char *path)
     // Echo received data back to the client
     char buffer[BUFSIZE];
     ssize_t bytesRead;
-
     while ((bytesRead = recv(clientSock, buffer, BUFSIZE, 0)) > 0)
     {
-        buffer[bytesRead] = '\0';
-
         // Handle Functions: LIST, DIFF, PULL, LEAVE
         if (strcasecmp(buffer, "LIST") == 0 || strcasecmp(buffer, "1") == 0)
         {
@@ -249,115 +246,21 @@ void handle_client(void *clientData, char *path)
             }
             else
             {
-                // Retrieve Client Hashes
-                int clientFileCount;
-                recv(clientSock, &clientFileCount, sizeof(int), 0); // Receive the number of files
-                unsigned char clientHashes[clientFileCount][SHA256_DIGEST_LENGTH];
-                unsigned char clientFileNames[500][256];
-                // printf("Client FC: %d\n", clientFileCount);
+                // Send File Count of server
+                send(clientSock, &serverFileCount, sizeof(int), 0);
 
-                for (int i = 0; i < clientFileCount; i++)
-                {
-                    int nameLen;
-                    recv(clientSock, &nameLen, sizeof(int), 0); // Receive the length of the file name
-
-                    char fileName[256];
-                    recv(clientSock, fileName, nameLen, 0); // Receive the file name
-                    fileName[nameLen] = '\0';
-
-                    for (int j = 0; j < nameLen; j++)
-                    {
-                        clientFileNames[i][j] = fileName[j];
-                    }
-                    clientFileNames[i][nameLen] = '\0';
-                    // for (int j = 0; j < nameLen; j++) {
-                    //     printf("%c", clientFileNames[i][j]);
-                    // }
-                    // printf("\n");
-
-                    recv(clientSock, clientHashes[i], SHA256_DIGEST_LENGTH, 0); // Receive the file hash
-                }
-
-                // Get server hashes
-                unsigned char serverHashes[serverFileCount][SHA256_DIGEST_LENGTH];
+                // For each file,
                 for (int i = 0; i < serverFileCount; i++)
                 {
-                    // Ignore ./server and client_db.csv
-                    if (strcasecmp(files[i]->name, "server") == 0 || strcasecmp(files[i]->name, "client_db.csv") == 0)
-                        continue;
-
-                    SHA256_CTX sha256;
-                    SHA256_Init(&sha256);
-                    SHA256_Update(&sha256, files[i]->content, strlen(files[i]->content));
-                    SHA256_Final(serverHashes[i], &sha256);
-                }
-
-                // printf("ServerFileCount: %d\n", serverFileCount);
-                // printf("ClientFileCount: %d\n", clientFileCount);
-
-                // Compare Hashes
-                int FTS = 0;
-                int filesToSend[serverFileCount];
-                for (int i = 0; i < serverFileCount; i++)
-                {
-                    // Ignore ./server and client_db.csv
-                    if (strcasecmp((const char *)files[i]->name, "server") == 0 ||
-                        strcasecmp((const char *)files[i]->name, "client_db.csv") == 0)
-                    {
-                        // printf("Ignoring %s\n", files[i]->name);
-                        continue;
-                    }
-                    int found = 0;
-                    for (int j = 0; j < clientFileCount; j++)
-                    {
-                        // Debug print serverhashes and clientFileNames
-                        // printf("Server File Name: %s\n", files[i]->name);
-                        // printf("Server hash: ");
-                        // for (int k = 0; k < SHA256_DIGEST_LENGTH; k++) {
-                        //     printf("%02x", serverHashes[i][k]);
-                        // }
-                        // printf("\n");
-                        // printf( "Client File Name: %s\n", clientFileNames[j]);
-                        // printf("Client hash: ");
-                        // for (int k = 0; k < SHA256_DIGEST_LENGTH; k++) {
-                        //     printf("%02x", clientFileNames[j][k]);
-                        // }
-                        // printf("\n");
-
-                        if (strcmp((const char *)clientFileNames[j], files[i]->name) == 0)
-                        {
-                            if (memcmp(serverHashes[i], clientHashes[j], SHA256_DIGEST_LENGTH) == 0)
-                            {
-                                found = 1;
-                                break;
-                            }
-                        }
-                    }
-                    if (found == 0)
-                    {
-                        printf("Sending %s to client %s:%d\n", files[i]->name, clientIP, ntohs(client->clientAddr.sin_port));
-                        // Store in filesToSend
-                        filesToSend[FTS] = i;
-                        FTS++;
-                    }
-                }
-
-                // Send files back to client
-                send(clientSock, &FTS, sizeof(int), 0); // Send the number of files to send
-                for (int i = 0; i < FTS; i++)
-                {
-                    int nameLen = strlen(files[filesToSend[i]]->name);
+                    int nameLen = strlen(files[i]->name);
                     send(clientSock, &nameLen, sizeof(int), 0);
-                    // Send the file name
-                    send(clientSock, files[filesToSend[i]]->name, nameLen, 0);
-                    // Send the file size
-                    int fileSize = strlen(files[filesToSend[i]]->content);
-                    send(clientSock, &fileSize, sizeof(int), 0);
-                    // Send the file content
-                    send(clientSock, files[filesToSend[i]]->content, fileSize, 0);
+                    send(clientSock, files[i]->name, nameLen, 0);
+
+                    long fileSize = strlen(files[i]->content);
+                    send(clientSock, &fileSize, sizeof(long), 0);
+                    send(clientSock, files[i]->content, fileSize, 0);
                 }
 
-                // Acknowlege Success
                 send(clientSock, "PULL SUCCESSFUL\n", 17, 0);
             }
             add_to_csv_entry("./client_db.csv", clientIP, ntohs(client->clientAddr.sin_port), "PULL");
